@@ -1,21 +1,11 @@
 FROM ubuntu:24.04
 ARG DEBIAN_FRONTEND=noninteractive
-# Set automatically by BuildKit from --platform (amd64, arm64, ...)
-ARG TARGETARCH
-
-# 32-bit x86 host libs and multilib compilers only exist on amd64.
-# On arm64 there is no i386 foreign architecture and no gcc-multilib package.
-RUN if [ "$TARGETARCH" = "amd64" ]; then \
-		dpkg --add-architecture i386 && \
-		EXTRA_PKGS="libc6:i386 libncurses6:i386 libstdc++6:i386 gcc-multilib g++-multilib"; \
-	else \
-		EXTRA_PKGS=""; \
-	fi && \
+RUN dpkg --add-architecture i386 && \
 	apt-get update && \
-	apt-get install -y -o APT::Immediate-Configure=0 \
-		$EXTRA_PKGS \
+	apt-get install -y -o APT::Immediate-Configure=0 libc6:i386 \
+		libncurses6:i386 \
+		libstdc++6:i386 \
 		build-essential \
-		bsdextrautils \
 		cmake \
 		git \
 		libncurses6 \
@@ -49,6 +39,8 @@ RUN if [ "$TARGETARCH" = "amd64" ]; then \
 		graphviz \
 		python3 \
 		python-is-python3 \
+		gcc-multilib \
+		g++-multilib \
 		vim \
 	&& apt-get clean \
 	&& rm -rf /var/lib/apt/lists/*
@@ -65,7 +57,7 @@ ENV TZ=Europe/Paris
 ENV FORCE_UNSAFE_CONFIGURE=1
 
 # device-tree-compiler : required for device-trees-aml-s9xx
-# libc6:i386 libncurses6:i386 libstdc++6:i386 : required for mame2016 (amd64 hosts only)
+# libc6:i386 libncurses5:i386 libstdc++6:i386: required for mame2016
 # gettext : required for buildstats.sh
 
 RUN mkdir -p /build

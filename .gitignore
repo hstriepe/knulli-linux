@@ -21,6 +21,7 @@ libretro-mame-tiny
 /buildroot-ccache
 /.ba-docker-image-available
 *.code-workspace
+!/knulli-linux.code-workspace
 knulli.mk
 .vscode/*
 make.log
@@ -39,5 +40,4 @@ batocera-mok.key
 /emulators-cache
 /armhf-cache
 
-# Exclude wiki docs
-/docs
+# docs/ holds this fork's agent workflow (PROMPT, CHAT, ADRs) and is tracked.
