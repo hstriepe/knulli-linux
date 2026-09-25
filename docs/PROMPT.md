@@ -7,3 +7,6 @@ Intialize the AGENTIC work environment brought over from another project
 - DECISIONS
 
 Pull upstream branches, switch to Development and handle the potential conflict.
+
+Update .gitignore and add all my workspace files.
+Push all the changes to Development

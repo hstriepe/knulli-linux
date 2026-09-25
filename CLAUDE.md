@@ -54,20 +54,33 @@ For full product documentation, see [README.md](README.md) and the [Knulli wiki]
 ```bash
 make vars                       # list targets and effective settings
 make build-docker-image         # build knulli/knulli-build from ./Dockerfile
+make h700-bootstrap             # everything from nothing: sysroot, drops, image (resumable)
+make h700-build                 # image build (drops must already exist)
 make h700-config                # generate defconfig for the target
-make h700-build                 # full image build
 make h700-shell                 # shell inside the build container
 make h700-pkg PKG=<package>     # rebuild a single package
 make h700-kernel                # kernel menuconfig/rebuild
 make h700-clean                 # wipe output/h700
 ```
 
-macOS hosts: `gfind` is required (`brew install findutils`). On Apple Silicon the image is
-built for `linux/arm64` and skips i386/multilib packages (ADR 0001). The Makefile mounts
-`/etc/passwd` and `/etc/group` into the container, which behaves differently on macOS than
-on Linux; check that first if the build fails with permission or user errors.
+On `development`, libretro cores, standalone emulators and the 32-bit runtime are
+**drops**, built separately and installed into the image:
+`h700-sysroot`, then `h700-cores-drop`, `h700-emulators-drop`, `h700-armhf-drop`, then
+`h700-build`. `h700-bootstrap` runs them in that order. Drop caches live in `cores-cache/`,
+`emulators-cache/` and `armhf-cache/` at the repo root.
 
-Useful knobs (env or `knulli.mk`): `PARALLEL_BUILD=1`, `MAKE_JLEVEL=N`, `DL_DIR`, `OUTPUT_DIR`, `CCACHE_DIR`, `DIRECT_BUILD=1` (skip Docker).
+**Host setup (this Mac, ADR 0002; step by step in [docs/macOS_build_prerequisites.md](docs/macOS_build_prerequisites.md)):**
+- Runtime is OrbStack (provides `docker`); `gfind` is required (`brew install findutils`).
+- `/Volumes/Shared` is case-insensitive, and Buildroot trees must be case-sensitive. So
+  `output`, `dl`, `buildroot-ccache`, `cores-cache`, `emulators-cache` and `armhf-cache` are
+  symlinks into the case-sensitive volume `/Volumes/KnulliBuild`. The git-ignored `knulli.mk`
+  mounts that volume at the same path in the container. Don't set `OUTPUT_DIR` elsewhere:
+  the drop targets assume `<repo>/output` under Docker.
+- The image is built for `linux/arm64` and skips i386/multilib packages (ADR 0001).
+- The Makefile mounts `/etc/passwd` and `/etc/group` into the container, but macOS keeps
+  UID 501 in Directory Services. Check that first on permission or user errors.
+
+Useful knobs (env or `knulli.mk`): `PARALLEL_BUILD=1`, `MAKE_JLEVEL=N`, `DIRECT_BUILD=1` (skip Docker).
 
 ---
 
@@ -79,7 +92,7 @@ Useful knobs (env or `knulli.mk`): `PARALLEL_BUILD=1`, `MAKE_JLEVEL=N`, `DL_DIR`
 - Do not modify `buildroot/` or `batocera/` submodules unless explicitly asked; override from this tree instead.
 - User-facing changes: update `README.md` / `knulli-Changelog.md`.
 - Policy/architecture changes: add/update an ADR in `docs/decisions/`.
-- Do not commit build artifacts (`output/`, `dl/`, `buildroot-ccache/`).
+- Do not commit build artifacts (`output/`, `dl/`, `buildroot-ccache/`, `*-cache/`).
 
 ---
 

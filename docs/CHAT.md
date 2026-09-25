@@ -36,3 +36,18 @@
 - `.gitignore`: dropped upstream's `/docs` ignore (docs/ now tracked); whitelisted `knulli-linux.code-workspace`. `.vscode/` (runtime state) and `.DS_Store` stay ignored.
 - Committed `CLAUDE.md`, `AGENTS.md`, `docs/`, `Dockerfile` (arm64-aware), `Dockerfile_x64`, `!git/KNULLI Wiki.webloc`, `knulli-linux.code-workspace`.
 - Pushed `development` to `origin` (`hstriepe/knulli-linux`) and set it as the tracking branch; `upstream/development` remains the source to merge from.
+
+### 2026-09-25 — Docker runtime and build volume (ADR 0002)
+
+- Recommendation accepted: OrbStack (drop-in `docker` CLI for the Makefile) over Apple `container`.
+- Found: `/Volumes/Shared` is case-insensitive APFS; Buildroot output needs case-sensitive.
+- Created APFS volume `KnulliBuild` (Case-sensitive, container `disk11`, `disk11s2`) at `/Volumes/KnulliBuild`, verified case sensitivity.
+- On `development` the drop targets hard-code `<repo>/output` and the `*-cache` dirs under Docker, so instead of relocating `OUTPUT_DIR`, the repo's `output`, `dl`, `buildroot-ccache`, `cores-cache`, `emulators-cache`, `armhf-cache` are symlinks into the volume; `knulli.mk` (ignored) adds `DOCKER_OPTS += -v /Volumes/KnulliBuild:/Volumes/KnulliBuild` and `MAKE_JLEVEL := 20`.
+- Added ADR 0002; updated the build section of `CLAUDE.md` (drop flow, `h700-bootstrap`, host setup).
+- Open: install OrbStack + `findutils`; verify case sensitivity through OrbStack's file sharing and the `/etc/passwd` user mapping on the first build.
+
+### 2026-09-25 — macOS build prerequisites doc
+
+- OrbStack set up with Docker (not Kubernetes/Linux); `findutils` + `coreutils` installed, no `gnubin` on PATH (the Makefile uses `gfind`; `nproc` is unprefixed).
+- Added `docs/macOS_build_prerequisites.md` (host requirements, Homebrew, OrbStack, case-sensitive volume, symlinks, `knulli.mk`, verify steps, first build, troubleshooting); linked from `CLAUDE.md`.
+- Committed ADR 0002, the doc updates and PROMPT.md; pushed `development` to origin.
