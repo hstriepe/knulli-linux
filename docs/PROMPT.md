@@ -50,3 +50,13 @@ To clarify - I do not yet have a scraper key
   - Implement
     - Scraper
     - DS Plus
+
+    ## Diskimage
+
+    Creating disk image
+  Now in startup
+
+  ## DS Plus
+
+Are there any DS build options so far?
+The Anberic image is here: /Volumes/KnulliBuild/anbernic/RG-DS-PLUS-EN16GB-20260915.zip

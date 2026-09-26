@@ -115,3 +115,39 @@
 - `bin/knulli-startup.sh` (`--check` = report only): Xcode CLT, Homebrew formulae + OrbStack cask, OrbStack running with the docker context, image mounted, build dirs and repo symlinks, `knulli.mk`, submodules, arm64/amd64 build images, case-sensitivity inside the container.
 - Measured space: ~186 GiB steady state for h700 (`output/h700` 92, `emulators-drop` 31, `dl` 24, `cores-cache` 19, armhf 15, ccache 4); another target adds ~100 GiB.
 - Open: finish the copy, `diskutil image resize --size 512G`, eject the old volume, `bin/knulli-startup.sh`; then update ADR 0002 and `docs/macOS_build_prerequisites.md`.
+
+### 2026-09-26 — RG DS Plus: target and stock firmware analysis
+
+**Finding:** the RG DS Plus is **RK3568**, not H700 (Anbernic spec page). It is a revised RG-DS, so it belongs on the universal `rk3566` image next to `rg-ds`, not under `board/allwinner/h700/`.
+
+**Plan (proposed):** 0) analyse stock firmware; 1) `rk3566-anbernic-rg-ds-plus.dts` in `linux_bsp_patches/0001-knulli-rk3566.patch` + `BR2_LINUX_KERNEL_INTREE_DTS_NAME`; 2) `rcS` model match `"Anbernic RG DS Plus"*` → `rg-ds-plus` **before** the `"Anbernic RG DS"*` glob; 3) add `rg-ds-plus` wherever `rg-ds` is handled (capabilities, audio amp, power LED, wifi, dual-screen DraStic); 4) controller mapping; 5) `make rk3566-bootstrap`; 6) docs/ADR (fork target is rk3566, not h700).
+
+**Step 0 — stock image** `RG-DS-PLUS-EN16GB-20260915.IMG` (work files in `/Volumes/KnulliBuild/anbernic/ds-plus/{parts,x}`):
+- GPT, Rockchip Linux SDK layout: uboot, misc, boot (FIT: fdt + kernel + resource), recovery, backup, rootfs 5G, ports, vendor, oem, userdata, ROMS (FAT).
+- Kernel **6.1.141** (same series as Knulli's `linux-6.1.y-rockchip`). The FIT config is signed `sha256,rsa2048:dev` (the SDK test key).
+- DT model is the generic `"Rockchip RK3568 DEEP LP3 V10 Board"`. We set our own model string.
+- Compared with the stock RG-DS DTB (`board/rockchip/rk3566/rg-ds/rk3566-anbernic-rg-ds.dtb`):
+
+| Area | RG-DS | RG DS Plus |
+|------|-------|-----------|
+| Panels (DSI0 top, DSI1 bottom; same VOP routing) | 640×480, 4 lanes, `aoly,sl008pa21y1285-b00`, flags 0x803 | **1024×768, 2 lanes**, 62.8 MHz, flags 0xe03, new init sequences (the two panels differ, 341/346 bytes), `power-supply` regulator, no `enable1-gpios` |
+| Backlight | 2 PWM, power via `gpio-leds` gpio4 PA4/PA3 | 2 PWM, same pins as `enable-gpios` on the backlight |
+| Touch | gt9xx on i2c4 (top) and i2c5 (bottom) | **bottom only**: gt9xx i2c5@0x14, 1024×768, reset GPIO0_A6, int GPIO0_C6 |
+| Audio | rk817 codec + external amp (spk-ctl gpio4 PC3), aw87391 | rk817 (no spk-ctl) + **2× Awinic AW883xx smart PA** i2c3@0x34/0x35 on I2S1 (reset gpio4 PA7/PB2, irq gpio4 PB0/PB3), firmware `/lib/firmware/aw883xx_acf.bin` (144,920 B). aw87391 disabled. Driver built into the stock kernel (out-of-tree Awinic). |
+| Buttons, D-pad, L3/R3, Menu, Vol, amux (gpio3 PC1–PC3, saradc ch3) | singleadc-joypad | `gpio-keys-polled` with vendor key codes, **same pins**. Knulli's `singleadc-joypad` node should carry over. |
+| Lid | hall gpio0 PC3 | same pin, read by vendor `anbernic,misc` |
+| Rumble | `rk-vibrator-gpio` | PWM motor (`moto.sh`: pwmchip0/pwm2, 50 Hz, 60 %) |
+| IMU | icm accel/gyro on | disabled |
+| WiFi/BT | RTL8821CS (DT says ap6330), host-wake gpio4 PA1 | same (`RTL8821CS.ko`, `rtl8821c_fw`, `rtlbt/`) |
+| Battery | cw2015 + rk817, 4.35 V | new cw2015 profile, 4247 mAh, **4.4 V** charge, new OCV table |
+| PMIC | DCDC1/2 min 0.9/0.825 V | min 0.5 V, init 0.9 V; DCDC1 off in suspend |
+
+- Stock userspace: Weston; dual-screen DraStic via `vendor/deep/drastic64/launch.sh` + `ndsCtrl.dge`; second-screen app `vendor/subscreen/`; touch gated via `/sys/class/anbernic_misc/tpctrl`.
+
+**Open items:**
+- AW883xx driver: **present** in `knulli-cfw/linux-6.1.y-rockchip` (`sound/soc/codecs/aw883xx/`) and already `=y` in `package/kernels/kernel-rg-ds/linux-rk3566-defconfig.config`. The universal image's `board/rockchip/rk3566/linux-bsp-defconfig.config` has it off: set `CONFIG_SND_SOC_AW883XX=y` and ship `aw883xx_acf.bin` in `/lib/firmware`.
+- Panel driver: confirm `simple-panel-dsi` in the Knulli kernel takes the new init sequence and flags.
+- Boot chain (rk3566 is a hybrid): `idbloader.img` is a **prebuilt blob** (DDR V1.13, 2022), U-Boot is built from `knulli-cfw/rk356x-uboot` (`rk3566-generic`), and `resource.img` is prebuilt with 7 DTBs picked by **SARADC hardware ID** (RG-DS = `saradc_ch1=525, ch0=1023`).
+  - DDR: the stock DS Plus loader is **v1.25** (2025-12). If V1.13 can't initialise its RAM, fall back to the extracted stock `idbloader` (sector 64), H700-style. That affects every rk3566 device, or needs a DS-Plus-only image.
+  - Hardware ID: the stock image has a single DTB, so the DS Plus ADC ID is unknown. Read it on the device (`/sys/bus/iio/devices/iio:device0/in_voltage{0,1}_raw` under stock Linux). If it matches the RG-DS, U-Boot picks the RG-DS DTB (640×480 panels → blank screens), and another selector is needed.
+  - Secure boot: the stock FIT is signed with the SDK `dev` key. The RG-DS boots Knulli's U-Boot, so verification is probably not enforced.
