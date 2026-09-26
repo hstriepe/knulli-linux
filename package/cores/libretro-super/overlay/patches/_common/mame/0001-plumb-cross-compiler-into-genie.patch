@@ -1,0 +1,30 @@
+Makefile.libretro forwards OVERRIDE_CC/OVERRIDE_CXX to MAME's genie build only
+on the Windows, Apple and webOS branches.  On Linux nothing is forwarded, so
+genie falls back to plain `gcc`/`g++` and the whole core is built with the BUILD
+HOST's compiler -- the cross toolchain in CC/CXX is silently ignored.  On an
+x86_64 host that yields an x86 core; on an aarch64 host (Apple Silicon/OrbStack)
+it compiles, but against the host glibc and without the profile's wrapper flags,
+and the final link of the full 43k-driver core then overflows R_AARCH64_CALL26.
+
+Same opt-in as patches/_common/same_cdi/0001 (a MAME fork with the same
+Makefile.libretro lineage): when CROSS_BUILD is set, pass the compilers through,
+plus the two values genie otherwise derives from the build host -- PLATFORM
+(from `uname -m`) and ARCHITECTURE (_x64 -> -m64, which aarch64 gcc rejects).
+Guarded by ifneq, so a native build is unaffected.
+
+diff --git a/Makefile.libretro b/Makefile.libretro
+index 3799635e..75772efb 100644
+--- a/Makefile.libretro
++++ b/Makefile.libretro
+@@ -306,6 +306,11 @@ endif
+ ifneq ($(LIBRETRO_CPU),)
+ 	PLATFLAGS += LIBRETRO_CPU=$(LIBRETRO_CPU)
+ endif
++ifneq ($(CROSS_BUILD),)
++	PLATFLAGS += OVERRIDE_CC="$(CC)" OVERRIDE_CXX="$(CXX)"
++	PLATFLAGS += CROSS_BUILD="$(CROSS_BUILD)"
++	PLATFLAGS += PLATFORM="$(LIBRETRO_CPU)" ARCHITECTURE=""
++endif
+ ifneq ($(FORCE_DRC_C_BACKEND),)
+ 	PLATFLAGS += FORCE_DRC_C_BACKEND=$(FORCE_DRC_C_BACKEND)
+ endif

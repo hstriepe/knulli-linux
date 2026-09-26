@@ -272,6 +272,18 @@ mame2010  arm32  PTR64=0 FORCE_DRC_C_BACKEND=1
 same_cdi  arm32  LIBRETRO_CPU=arm PTR64=0 FORCE_DRC_C_BACKEND=1 CROSS_BUILD=1
 same_cdi  arm64  LIBRETRO_CPU=arm64 PTR64=1 FORCE_DRC_C_BACKEND=1 CROSS_BUILD=1
 
+# mame: same Makefile.libretro lineage as same_cdi, same failure -- without
+# CROSS_BUILD genie builds with the host g++ (see patches/_common/mame/0001).
+# Unlike same_cdi, MAME has an arm64 DRC backend, so FORCE_DRC_C_BACKEND stays
+# unset.  NOT yet verified: the next cores-drop is what verifies it.
+mame  arm64  LIBRETRO_CPU=arm64 PTR64=1 CROSS_BUILD=1
+
+# hatari: upstream main (2026) dropped Makefile.libretro; the core is now the
+# hatari_libretro CMake target, behind ENABLE_LIBRETRO (default OFF).  The
+# emulator and tools are off because only the core is wanted.  NOT yet
+# verified: the next cores-drop is what verifies it.
+hatari  any  -DENABLE_LIBRETRO=ON -DENABLE_HATARI=OFF -DENABLE_TOOLS=OFF
+
 # openlara: arm64 only.  knulli's aarch64 sysroots ship libmali, whose
 # libGLESv2.so is a ~6 KB dispatch STUB -- 19 dynamic symbols, no
 # glDeleteTextures -- because entry points are resolved at runtime through

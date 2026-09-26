@@ -5,7 +5,7 @@ craft libretro-craft https://github.com/libretro/craft master YES GENERIC Makefi
 dice libretro-dice https://github.com/mittonk/dice-libretro.git main YES GENERIC Makefile .
 emuscv libretro-emuscv https://gitlab.com/MaaaX-EmuSCV/libretro-emuscv.git master@112c83930a1959e3d6f81693be1bacae98360539 YES GENERIC Makefile.libretro .
 geolith libretro-geolith https://github.com/libretro/geolith-libretro.git master YES GENERIC Makefile libretro
-hatari libretro-hatari https://github.com/libretro/hatari.git master YES GENERIC Makefile.libretro .
+hatari libretro-hatari https://github.com/libretro/hatari.git main YES CMAKE Makefile build
 lutro libretro-lutro https://github.com/libretro/libretro-lutro master YES GENERIC Makefile .
 mame2010 libretro-mame2010 https://github.com/libretro/mame2010-libretro.git master YES GENERIC Makefile .
 mednafen_pcfx libretro-beetle_pcfx https://github.com/libretro/beetle-pcfx-libretro.git master@dd04cef9355286488a1d78ff18c4c848a1575540 YES GENERIC Makefile .
