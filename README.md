@@ -5,7 +5,21 @@
 [![Website](https://img.shields.io/website?down_color=red&down_message=down&up_color=green&up_message=up&url=https%3A%2F%2Fwww.knulli.org)](https://knulli.org)
 [![Discord Server](https://img.shields.io/discord/357518249883205632.svg)](https://discord.gg/HXPS3DAeeB)
 
+
+
+# Fork for compiling on macOS - Apple Silicon
+
+Use the **development** branch.
+
+- Compiled with 
+  - OrbStack
+  - No core limit, 24 GB
+  - Rosetta2 option for targets not compatible with ARM64
+
+On an M1 Ultra Studio, the first build takes16 hours
+
 ## :video_game::penguin: Knulli CFW :video_game::penguin:
+
 Knulli CFW is a fork of the open-source and completely free retro-gaming distribution batocera that can be copied to an SD card with the aim of improving many of the emulation handhelds on the market that usually ship with incomplete and often non GPL compliant software. It supports [many emulators and game engines](https://www.batocera.org/compatibility.php) out of the box. 
 
 ## Get information on the project
