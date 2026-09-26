@@ -24,11 +24,12 @@ the container.
 ## 2. Homebrew packages
 
 ```bash
-brew install orbstack findutils coreutils git
+brew install orbstack findutils coreutils gnu-sed git
 ```
 
 - **findutils:** required. On Darwin the Makefile calls `gfind` and stops right away if it's missing.
 - **coreutils:** provides `nproc`, which the Makefile uses for `MAKE_JLEVEL`.
+- **gnu-sed:** required. On Darwin the Makefile uses `gsed` for `sed -i` edits of the defconfig (BSD `sed -i` has different syntax).
 - **Don't** add the `gnubin` directories to your `PATH`. The build runs GNU tools inside the
   container, and replacing the BSD tools on the host can break macOS and Homebrew scripts.
 
@@ -105,7 +106,28 @@ DOCKER_OPTS += -v /Volumes/KnulliBuild:/Volumes/KnulliBuild
 
 # Optional: explicit parallelism (defaults to $(nproc))
 MAKE_JLEVEL := 20
+
+# Run docker through the macOS wrapper: it gives the container user a passwd
+# entry and a writable $HOME, and runs *_armhf_libs targets in the amd64 image.
+DOCKER := $(PROJECT_DIR)/scripts/macos/docker-wrapper.sh
+
+# harvest-drop.py execs the drop's Linux readelf/strip, so run it in the container.
+EMULATORS_DROP_PYTHON = $(DOCKER) run --rm --init -e HOME \
+	-v $(PROJECT_DIR):$(PROJECT_DIR) -v /Volumes/KnulliBuild:/Volumes/KnulliBuild \
+	-v /etc/passwd:/etc/passwd:ro -v /etc/group:/etc/group:ro \
+	-u $(UID):$(GID) -w $(PROJECT_DIR) knulli/knulli-build python3
 ```
+
+What [`scripts/macos/docker-wrapper.sh`](../scripts/macos/docker-wrapper.sh) does for `docker run`
+(every other docker command passes through unchanged):
+
+- **User mapping.** macOS keeps users in Directory Services, not `/etc/passwd`, so the
+  Makefile's `/etc/passwd` mount leaves UID 501 without a name and `$HOME` read-only. The wrapper
+  mounts generated passwd/group files (the image's own plus your user) and a writable home from
+  `/Volumes/KnulliBuild/container/home`.
+- **32-bit host compiler.** The `*_armhf_libs` configs enable `batocera-luajit`, which needs
+  `gcc -m32` on the host. aarch64 gcc has no `-m32`, so those targets run in
+  `knulli/knulli-build:amd64` under Rosetta (see step 6).
 
 ## 6. Verify
 
@@ -117,8 +139,10 @@ docker run --rm -v /Volumes/KnulliBuild:/v alpine \
 # 2. The Makefile sees the target, the paths and the docker options
 make vars
 
-# 3. Build image (native linux/arm64; i386/multilib packages are skipped, ADR 0001)
+# 3. Build images: native linux/arm64 for everything, plus an amd64 one for the
+#    *_armhf_libs targets (needs gcc -m32; runs under Rosetta; ADR 0001)
 make build-docker-image
+docker build --platform linux/amd64 -t knulli/knulli-build:amd64 .
 
 # 4. Container user mapping and symlinks resolve inside the container
 make h700-shell
@@ -134,6 +158,11 @@ make h700-build
 make h700-pkg PKG=<package>
 ```
 
+A full bootstrap from scratch took about 14 hours of build time on the reference host (M1 Ultra):
+roughly 4.5 h for the sysroot and the cores drop (MAME alone is over an hour), 2.5 h for the
+rk3576 emulators build, and 7 h for the armhf libs (under Rosetta) plus the images. Reruns only
+redo what changed.
+
 Images end up in `output/h700/images/knulli/images/<device>/`, which is on `/Volumes/KnulliBuild`.
 `make h700-webserver` serves them over HTTP.
 
@@ -144,9 +173,12 @@ Images end up in `output/h700/images/knulli/images/<device>/`, which is on `/Vol
 | Symptom | Cause / fix |
 |---------|-------------|
 | `gfind not found! Please install findutils` | `brew install findutils` |
+| `gsed not found! Please install gnu-sed` | `brew install gnu-sed` |
+| `sed: 1: "...": invalid command code` | Host BSD `sed -i`. Use a Makefile with the `SED ?= gsed` Darwin branch |
+| `Your Buildroot configuration needs a compiler capable of building 32 bits binaries` | A `*_armhf_libs` target ran in the arm64 image. Build `knulli/knulli-build:amd64` and use the wrapper (`DOCKER :=` in `knulli.mk`) |
+| `whoami: cannot find name for user ID 501` inside the container | The wrapper isn't in use. Set `DOCKER :=` in `knulli.mk` |
 | `docker not found!` | OrbStack isn't running, or Docker Desktop has taken over the `docker` command. Run `docker context use orbstack` |
 | Kernel or package build fails on duplicate, missing or overwritten headers | Build tree is on a case-insensitive volume. Check that `output`, `dl` and the caches are symlinks into `/Volumes/KnulliBuild` |
-| Inside the container: `I have no name!`, or permission errors under `$HOME` | The Makefile mounts macOS `/etc/passwd`, which doesn't list UID 501 (macOS keeps users in Directory Services). Try `make h700-shell` and `id`; if tools fail, add a passwd entry through `DOCKER_OPTS` |
 | Drop targets can't find `/build/output/<board>/host` | `output` was moved with `OUTPUT_DIR` instead of symlinked. Restore the default and use the symlink |
 | A package needs 32-bit x86 host libraries (e.g. `mame2016`) | The arm64 build image doesn't have them. Build that target in an amd64 image: `docker build --platform linux/amd64 …` (runs under Rosetta in OrbStack) |
 | Builds are slow | File sharing overhead. Fallback: an OrbStack Linux machine (`orb create ubuntu knulli`) with the repo cloned on its native filesystem |

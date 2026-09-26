@@ -40,8 +40,8 @@ We compared two runtimes: OrbStack, and Apple's `container` CLI (`brew install c
 
 ## Consequences
 
-- `make h700-bootstrap` / `h700-build` run as upstream intends. No Makefile changes, so there is
-  nothing to reconcile on upstream merges.
+- `make h700-bootstrap` / `h700-build` run as upstream intends. The first build still needed two
+  small, upstreamable Makefile changes for macOS hosts (see Amendment).
 - Build output stays visible in Finder and VS Code at `/Volumes/KnulliBuild`.
 - Bind-mounted I/O goes through OrbStack's file sharing. If full builds turn out too slow, the
   fallback is an OrbStack Linux machine (`orb create ubuntu knulli`) with the repo cloned onto its
@@ -50,10 +50,32 @@ We compared two runtimes: OrbStack, and Apple's `container` CLI (`brew install c
   Nothing in git records them except this ADR.
 - The host also needs `gfind` (`brew install findutils`), which the Makefile requires on Darwin.
   `nproc` is missing on macOS, hence `MAKE_JLEVEL` above.
-- Not yet verified here, because OrbStack isn't installed yet:
-  - case sensitivity is preserved through OrbStack's file sharing;
-  - the `/etc/passwd` mount works for UID 501, which macOS keeps in Directory Services rather
-    than in `/etc/passwd`.
-
-  Check both on the first build.
+- Verified on the first build: case sensitivity is preserved through OrbStack's file sharing.
+  The `/etc/passwd` mount did **not** work for UID 501 (see Amendment).
 - Spotlight will index the build volume. Consider `sudo mdutil -i off /Volumes/KnulliBuild`.
+
+## Amendment — 2026-09-26, first full build
+
+The first `make h700-bootstrap` (10 H700 images, `exit=0`) needed the following on this host.
+All of it is macOS-host specific; Linux hosts are unaffected.
+
+1. **Container user.** macOS keeps UID 501 in Directory Services, so the Makefile's
+   `/etc/passwd` mount left the user nameless (`whoami`/`getpwuid` fail) and `$HOME` was a
+   root-owned mount point. `scripts/macos/docker-wrapper.sh`, selected with
+   `DOCKER := $(PROJECT_DIR)/scripts/macos/docker-wrapper.sh` in `knulli.mk`, swaps those mounts for
+   generated passwd/group files (the image's own plus the user) and mounts a writable home from
+   `/Volumes/KnulliBuild/container/home`.
+2. **Host `sed -i`.** `%-config` edits the defconfig with `sed -i` on the host, and BSD sed
+   rejects that syntax. Makefile: `SED ?= gsed` on Darwin, mirroring the existing
+   `FIND ?= gfind` (needs `brew install gnu-sed`).
+3. **Host-side harvest.** `harvest-drop.py` runs on the host and execs the drop's Linux
+   `readelf`/`strip`. Makefile: new hook `EMULATORS_DROP_PYTHON ?= python3`; `knulli.mk` points
+   it at `python3` in the build container, with the repo and the volume mounted at their host
+   paths.
+4. **32-bit host compiler.** `*_armhf_libs` enables `batocera-luajit`, which for a 32-bit target
+   selects `BR2_HOSTARCH_NEEDS_IA32_COMPILER` (`gcc -m32`). aarch64 gcc has no `-m32`. This is the
+   ADR 0001 case: the wrapper runs targets whose output mount matches `_armhf_libs$` in
+   `knulli/knulli-build:amd64` (built with `docker build --platform linux/amd64`), which OrbStack
+   runs under Rosetta. The generated 32-bit i386 `buildvm` runs under OrbStack's emulation.
+
+Cost: the armhf libs are the slowest stage under Rosetta (most of the ~7 h final run).

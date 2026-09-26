@@ -24,9 +24,12 @@ OS := $(shell uname)
 
 ifeq ($(OS),Darwin)
 $(if $(shell which gfind 2>/dev/null),,$(error "gfind not found! Please install findutils from Homebrew."))
+$(if $(shell which gsed 2>/dev/null),,$(error "gsed not found! Please install gnu-sed from Homebrew."))
 FIND ?= gfind
+SED ?= gsed
 else
 FIND ?= find
+SED ?= sed
 endif
 
 UC = $(shell echo '$1' | tr '[:lower:]' '[:upper:]')
@@ -141,7 +144,7 @@ dl-dir:
 # config the images use -- so the drop cannot drift from the board it serves.
 %-config: knulli-docker-image output-dir-%
 	@$(PROJECT_DIR)/configs/createDefconfig.sh $(PROJECT_DIR)/configs/knulli-$*
-	$(if $(DEFCONFIG_SED),@sed -i '$(DEFCONFIG_SED)' $(PROJECT_DIR)/configs/knulli-$*_defconfig)
+	$(if $(DEFCONFIG_SED),@$(SED) -i '$(DEFCONFIG_SED)' $(PROJECT_DIR)/configs/knulli-$*_defconfig)
 	@for opt in $(EXTRA_OPTS); do \
 		echo $$opt >> $(PROJECT_DIR)/configs/knulli-$*_defconfig ; \
 	done
@@ -262,6 +265,10 @@ EMULATORS_DROP_OUTPUT ?= $(OUTPUT_DIR)/emulators-drop
 EMULATORS_DROP_DIR    ?= $(EMULATORS_DROP_OUTPUT)/$*
 
 EMULATORS_DROP_HARVEST = $(PROJECT_DIR)/package/emulators/knulli-emulators-drop/harvest-drop.py
+# How harvest-drop.py is run.  It execs the target readelf/strip from the drop's
+# host/bin, which only run on a Linux host; a macOS host points this at the
+# build container instead (see docs/macOS_build_prerequisites.md).
+EMULATORS_DROP_PYTHON ?= python3
 EMULATORS_DROP_SET     = $(PROJECT_DIR)/package/emulators/knulli-emulators-drop/emulators.set
 EMULATORS_DROP_PKGDIRS = \
 	--pkgdirs $(PROJECT_DIR)/batocera/package/batocera/emulators \
@@ -289,7 +296,7 @@ EMULATORS_DROP_REFERENCE = \
 # Not one $(MAKE) call: the config must exist before the list can be computed.
 %-emulators-drop-run: %-supported %-emulators-reference
 	@$(MAKE) $*-config OUTPUT_DIR=$(EMULATORS_DROP_OUTPUT) $(EMULATORS_DROP_GATE_OFF)
-	@targets=$$(python3 $(EMULATORS_DROP_HARVEST) --print-targets \
+	@targets=$$($(EMULATORS_DROP_PYTHON) $(EMULATORS_DROP_HARVEST) --print-targets \
 		--config $(EMULATORS_DROP_DIR)/.config \
 		--set $(EMULATORS_DROP_SET) $(EMULATORS_DROP_PKGDIRS)); \
 	test -n "$$targets" || { echo "emulators-drop: no packages to build" >&2; exit 1; }; \
@@ -310,7 +317,7 @@ EMULATORS_DROP_REFERENCE = \
 	fi
 
 %-emulators-harvest: %-supported %-emulators-reference
-	@python3 $(EMULATORS_DROP_HARVEST) \
+	@$(EMULATORS_DROP_PYTHON) $(EMULATORS_DROP_HARVEST) \
 		--output-dir $(EMULATORS_DROP_DIR) \
 		--profile $$(awk '$$1=="PROFILE"{p=$$2} $$1=="GPU"{g=$$2} \
 			END{if (g=="" || g=="mali") print p; else print p "-" g}' \

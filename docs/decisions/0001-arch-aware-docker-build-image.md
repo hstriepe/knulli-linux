@@ -34,3 +34,11 @@ against upstream.
 - A native arm64 host is not a configuration upstream tests. Host-tool failures that don't happen
   on amd64 should be checked against this ADR first.
 - Upstream merges that touch `Dockerfile` need manual reconciliation; compare against `Dockerfile_x64`.
+
+## Amendment — 2026-09-26
+
+The "needs amd64" case happened on the first build, though not through `mame2016`: the
+`*_armhf_libs` configs enable `batocera-luajit`, which requires `gcc -m32` on the host. On macOS
+these targets now run in `knulli/knulli-build:amd64` automatically, via
+`scripts/macos/docker-wrapper.sh` (ADR 0002, Amendment item 4). Every other target stays native
+arm64.

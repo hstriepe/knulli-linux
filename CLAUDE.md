@@ -76,9 +76,15 @@ On `development`, libretro cores, standalone emulators and the 32-bit runtime ar
   symlinks into the case-sensitive volume `/Volumes/KnulliBuild`. The git-ignored `knulli.mk`
   mounts that volume at the same path in the container. Don't set `OUTPUT_DIR` elsewhere:
   the drop targets assume `<repo>/output` under Docker.
-- The image is built for `linux/arm64` and skips i386/multilib packages (ADR 0001).
-- The Makefile mounts `/etc/passwd` and `/etc/group` into the container, but macOS keeps
-  UID 501 in Directory Services. Check that first on permission or user errors.
+- The image is built for `linux/arm64` and skips i386/multilib packages (ADR 0001). The
+  `*_armhf_libs` targets need `gcc -m32` (batocera-luajit), so they run in
+  `knulli/knulli-build:amd64` under Rosetta.
+- `knulli.mk` sets `DOCKER :=` to `scripts/macos/docker-wrapper.sh`. It fixes the container
+  user (macOS keeps UID 501 out of `/etc/passwd`) and picks the amd64 image for
+  `*_armhf_libs`. `EMULATORS_DROP_PYTHON` runs the harvest script in the container.
+- Makefile needs `gsed` on Darwin (`brew install gnu-sed`).
+- A build regenerates `package/emulationstation/knulli-es-system/locales/*.po` and `.pot`.
+  Don't commit those with unrelated changes.
 
 Useful knobs (env or `knulli.mk`): `PARALLEL_BUILD=1`, `MAKE_JLEVEL=N`, `DIRECT_BUILD=1` (skip Docker).
 
