@@ -1,5 +1,16 @@
 # KNULLI-LINUX (fork) — Build and Release
 
+## TODO
+
+- [x] Finish the `h700-bugfix-1` rebuild; check the exit code and that the image contains `knulli-diag-net`, the new `services/ssh` and `services/samba`, and `modprobe.d/8821cs.conf`.
+- [ ] On-device test with an exFAT SHARE: SSH key login, password login, host keys unchanged after a reboot.
+- [ ] On-device test: Samba from macOS Finder (copy, rename, delete folders) on exFAT and on ext4.
+- [ ] On-device test: WPA2 WiFi stays connected (idle, after suspend/resume); check `rtw_power_mgnt`/`rtw_ips_mode` in `/sys/module/8821cs/parameters`.
+- [ ] Run `knulli-diag-net` on the device and review the report (NTFS/FAT32 SHARE too).
+- [ ] ScreenScraper: get a developer key, then wire it into the build (`keys.txt`) and debug scraping on ext4.
+- [ ] Commit the bug fixes (without the regenerated ES `locales/*.po`/`.pot`) and push `development`.
+- [ ] DS Plus (H700) bring-up: new device folder under `board/allwinner/h700/` (device tree, boot config, `genimage.cfg`, partitions).
+
 ## LOG
 
 ### 2026-09-25 — Initialize agentic work environment
@@ -76,3 +87,23 @@
 - Side effect: the build regenerates `knulli-es-system` `locales/*.po`/`.pot` (30 files, +31k lines). Left uncommitted.
 - Docs: amended ADR 0001 and 0002 with the first-build findings; updated `docs/macOS_build_prerequisites.md` (gnu-sed, amd64 image, full `knulli.mk`, wrapper, timings, troubleshooting) and the CLAUDE.md host setup.
 - Note: no DS Plus device folder exists yet; these are the stock H700 device images. The DS Plus bring-up is the next step.
+
+### 2026-09-26 — Bug fixes: SSH/Samba off ext4, WiFi (WPA2), ScreenScraper
+
+**Plan (approved):** SHARE on vfat/exFAT/NTFS (SD1 reformatted or SD2) breaks SSH and Samba; WPA2 WiFi drops on H700; ScreenScraper fails on ext4 (stock Knulli).
+1. `knulli-diag-net`: on-device diagnostics written to `/userdata/system/logs/` (readable from a PC when SSH is broken).
+2. WiFi: `modprobe.d/8821cs.conf` (power save off; driver v5.5.1 had no options) and connman `BackgroundScanning=false` for H700. WPA2-only, so no PMF/SAE change.
+3. SSH: exFAT/NTFS are FUSE on the 4.9 kernel (no hard links, fsync, or POSIX modes). Keep live host keys and `authorized_keys` on a POSIX path, synced to/from `/userdata/system` with correct modes.
+4. Samba: detect the `/userdata` fs type at start; on non-POSIX filesystems disable xattr-based DOS attributes/streams.
+5. ScreenScraper: parked until a dev key is available (not compiled into this build); diagnostics capture clock/scraper state.
+6. Incremental `make h700-build`, ADR for the SSH key location, README.
+
+**Execution:**
+- Clarified: no ScreenScraper dev key yet, so step 5 stays parked.
+- WiFi (step 2): `board/allwinner/h700/fsoverlay/etc/modprobe.d/8821cs.conf` (`rtw_power_mgnt=0 rtw_ips_mode=0`) and `BackgroundScanning=false` in the h700 `connman/main.conf`.
+- `knulli-diag-net` (step 1): new script in `knulli-scripts` that writes `/userdata/system/logs/knulli-diag-net-<date>.log` (fs types and modes, dropbear/samba state, connman/iw/8821cs params, dmesg, scraper settings and clock).
+- SSH (step 3): the cause is dropbear's permission check. On exFAT (FUSE, `0777`), `authorized_keys`, `.ssh` and root's home `/userdata/system` are all world-writable. dropbear 2026.91 no longer uses `link()` for key generation, so host keys work. Fix in `services/ssh`: on msdos/vfat/exfat/fuse/fuseblk/ntfs, copy the host keys and `authorized_keys` to `/var/run/dropbear-share` (0700/0600) and run with `-r … -D`; generated keys are copied back to `/userdata/system/ssh`. Verified in a privileged arm64 container with the target's dropbear/dbclient: **exFAT old = "No auth methods could be used", new = login OK**; vfat worked with both.
+- Samba (step 4): `services/samba` writes `/var/run/samba/smb.conf` (includes the chosen config, `[share]` without EA/DOS attributes, only `.DS_Store` vetoed so macOS `._*` files are allowed). Checked with the target `testparm` for both `smb.conf` and `smb-secure.conf`: the overrides merge into `[share]`.
+- ADR 0003, README "Fixes in this fork".
+- Build: `make h700-pkg PKG=knulli-scripts-reinstall && make h700-build` (log `h700-bugfix-1.log`).
+- Build `h700-bugfix-1`: **exit=0** (Sat 2026-09-26 12:47). All 10 device images rebuilt; the target contains `knulli-diag-net`, the new ssh/samba services, `modprobe.d/8821cs.conf` and `BackgroundScanning=false`. Pending: on-device tests (see TODO).

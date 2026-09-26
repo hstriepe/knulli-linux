@@ -19,6 +19,28 @@ mkdir -p /var/log/samba
 mkdir -p /var/lock/subsys
 mkdir -p /var/run/samba
 
+# vfat, exfat and ntfs (fuse) have no xattrs: DOS attributes and streams fail,
+# and macOS clients fall back to AppleDouble ._ files, which [share] vetoes
+case "$(stat -f -c %T /userdata 2>/dev/null)" in
+    msdos|vfat|exfat|fuseblk|fuse|ntfs)
+        NONPOSIX_CONFIGFILE="/var/run/samba/smb.conf"
+        cat > "$NONPOSIX_CONFIGFILE" <<EOF
+include = $CONFIGFILE
+
+[share]
+   ea support = no
+   store dos attributes = no
+   map archive = no
+   map hidden = no
+   map system = no
+   map readonly = no
+   veto files = /.DS_Store/
+   delete veto files = yes
+EOF
+        CONFIGFILE="$NONPOSIX_CONFIGFILE"
+        ;;
+esac
+
 start() {
     echo "Starting Samba..."
     enabled="$(/usr/bin/knulli-settings-get system.samba.enabled)"

@@ -18,6 +18,20 @@ Use the **development** branch.
 
 On an M1 Ultra Studio, the first build takes16 hours
 
+### Fixes in this fork
+
+- **SSH on exFAT/NTFS/FAT32 shares:** key login works when `SHARE` is not ext4/btrfs. The host keys stay in
+  `/userdata/system/ssh` and `authorized_keys` stays in `/userdata/system/.ssh`, but SSH reads
+  them from a private copy made at service start. After editing `authorized_keys`, restart SSH
+  (turn it off and on in the menu) or reboot.
+- **Samba on exFAT/NTFS/FAT32 shares:** extended attributes are turned off on those filesystems,
+  and macOS `._*` files are allowed, so Finder copies work.
+- **WiFi (H700):** RTL8821CS power saving and connman background scanning are off, so WPA2
+  links don't drop.
+- **`knulli-diag-net`:** run it on the device (e.g. from a terminal) to write a network
+  report to `/userdata/system/logs/`. You can read it over the share when SSH is down.
+- ScreenScraper needs a developer key, which this build doesn't include yet.
+
 ## :video_game::penguin: Knulli CFW :video_game::penguin:
 
 Knulli CFW is a fork of the open-source and completely free retro-gaming distribution batocera that can be copied to an SD card with the aim of improving many of the emulation handhelds on the market that usually ship with incomplete and often non GPL compliant software. It supports [many emulators and game engines](https://www.batocera.org/compatibility.php) out of the box. 

@@ -1,0 +1,82 @@
+#!/bin/sh
+
+# knulli-diag-net: collect network service diagnostics (SSH, Samba, WiFi, scraper).
+# The report goes to /userdata/system/logs so it can be read from a PC
+# when SSH or Samba are not working.
+
+LOGDIR="/userdata/system/logs"
+OUT="${LOGDIR}/knulli-diag-net-$(date +%Y%m%d-%H%M%S).log"
+
+mkdir -p "${LOGDIR}"
+
+section() {
+    printf '\n===== %s =====\n' "$1"
+}
+
+run() {
+    printf '\n$ %s\n' "$*"
+    "$@" 2>&1
+}
+
+{
+    section "system"
+    run date
+    run uname -a
+    run cat /usr/share/knulli/knulli.version
+    run uptime
+
+    section "userdata filesystem"
+    run stat -f -c '%T' /userdata
+    run stat -f -c '%T' /userdata/system
+    run findmnt -T /userdata
+    run findmnt -T /userdata/system
+    run grep -E ' /userdata| /media' /proc/mounts
+    run ls -ld /userdata /userdata/system /userdata/system/.ssh /userdata/system/ssh
+    run ls -l /userdata/system/.ssh /userdata/system/ssh
+
+    section "ssh"
+    run knulli-settings-get system.ssh.enabled
+    run knulli-settings-get system.services
+    run ls -ld /etc/dropbear /var/run/dropbear
+    run ls -l /var/run/dropbear
+    run pidof dropbear
+    run cat /proc/net/tcp
+    run grep -i dropbear /var/log/messages
+
+    section "samba"
+    run knulli-settings-get system.samba.enabled
+    run knulli-settings-get system.security.enabled
+    run pidof smbd nmbd wsdd
+    run ls -l /var/run/samba
+    run testparm -s /var/run/samba/smb.conf
+    run tail -n 100 /var/log/samba/log.smbd
+
+    section "wifi"
+    run knulli-settings-get wifi.enabled
+    run knulli-settings-get wifi.ssid
+    run connmanctl technologies
+    run connmanctl services
+    run cat /etc/connman/main.conf
+    run cat /etc/modprobe.d/8821cs.conf
+    run lsmod
+    run cat /sys/module/8821cs/parameters/rtw_power_mgnt
+    run cat /sys/module/8821cs/parameters/rtw_ips_mode
+    run ip addr
+    run ip route
+    run iw dev
+    run iw dev wlan0 link
+    run cat /proc/net/wireless
+    run cat /etc/resolv.conf
+    run ping -c 3 -W 2 8.8.8.8
+    run grep -iE 'wlan|8821|connman|wpa_supplicant|deauth|disassoc' /var/log/messages
+    run dmesg
+
+    section "scraper"
+    run date -u
+    run knulli-settings-get global.scraper
+    run grep -i -A3 'scrap' /userdata/system/configs/emulationstation/es_settings.cfg
+    run ls -l /userdata/system/logs/es_log.txt
+    run grep -iE 'scrap|screenscraper|curl|http' /userdata/system/logs/es_log.txt
+} > "${OUT}" 2>&1
+
+echo "${OUT}"

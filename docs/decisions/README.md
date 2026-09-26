@@ -9,6 +9,7 @@ Supersede rather than edit: add a new ADR and mark the old one `Superseded by NN
 |-----|-------|--------|
 | [0001](0001-arch-aware-docker-build-image.md) | Architecture-aware Docker build image | Accepted |
 | [0002](0002-orbstack-and-case-sensitive-build-volume.md) | OrbStack runtime and a case-sensitive build volume | Accepted |
+| [0003](0003-ssh-and-samba-on-non-posix-share.md) | SSH and Samba on a non-POSIX share | Accepted |
 
 ## Template
 

@@ -1,3 +1,19 @@
+# Knulli - Fork (hstriepe/knulli-linux) - unreleased
+
+## Changelog
+
+#### ADDED
+* **Build:** Build on macOS hosts (Apple Silicon) with OrbStack and a case-sensitive build volume. The `*_armhf_libs` targets run in an amd64 image under Rosetta.
+* **Network diagnostics:** New `knulli-diag-net` command writes a report on SSH, Samba, WiFi and scraper state to `/userdata/system/logs/`. The report can be read over the share when SSH is down.
+
+#### IMPROVED
+* **Wi-Fi (H700):** Turned off RTL8821CS power saving (`rtw_power_mgnt=0`, `rtw_ips_mode=0`) and connman background scanning, so WPA2 connections stay up.
+
+#### FIXED
+* **SSH on exFAT/NTFS shares:** Fixed key-based login when SHARE isn't ext4/btrfs. The host keys and `authorized_keys` stay on the share, and SSH now reads them from a private copy made at start. Restart SSH after editing `authorized_keys`.
+* **Samba on exFAT/NTFS/FAT32 shares:** Turned off extended-attribute storage (DOS attributes/streams) on these filesystems, and allowed macOS `._*` files so Finder copies work.
+* **Libretro cores:** Fixed the `mame` build (cross-compiler passed to genie) and the `hatari` build (upstream `main` branch, CMake).
+
 # Knulli - SCARAB - (20260511)
 
 ## Changelog

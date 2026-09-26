@@ -48,6 +48,7 @@ define KNULLI_SCRIPTS_INSTALL_TARGET_CMDS
     install -m 0755 $(KNULLI_SCRIPTS_PATH)/scripts/knulli-encode                    $(TARGET_DIR)/usr/bin/
     install -m 0755 $(KNULLI_SCRIPTS_PATH)/scripts/knulli-padsinfo                  $(TARGET_DIR)/usr/bin/
     install -m 0755 $(KNULLI_SCRIPTS_PATH)/scripts/knulli-info                      $(TARGET_DIR)/usr/bin/
+    install -m 0755 $(KNULLI_SCRIPTS_PATH)/scripts/knulli-diag-net                  $(TARGET_DIR)/usr/bin/
     install -m 0755 $(KNULLI_SCRIPTS_PATH)/scripts/knulli-install                   $(TARGET_DIR)/usr/bin/
     install -m 0755 $(KNULLI_SCRIPTS_PATH)/scripts/knulli-format                    $(TARGET_DIR)/usr/bin/
     install -m 0755 $(KNULLI_SCRIPTS_PATH)/scripts/knulli-mount                     $(TARGET_DIR)/usr/bin/

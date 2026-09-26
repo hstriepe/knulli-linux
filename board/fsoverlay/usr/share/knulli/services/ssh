@@ -6,6 +6,50 @@
 # Allow a few customizations from a config file
 test -r /etc/default/dropbear && . /etc/default/dropbear
 
+# host keys (see board/dropbear_localoptions.h) and authorized_keys on the share
+HOSTKEY_DIR="/userdata/system/ssh"
+AUTHKEY_DIR="/userdata/system/.ssh"
+# POSIX copy used when the share can't hold owners and modes
+RUN_DIR="/var/run/dropbear-share"
+
+# vfat, exfat and ntfs (fuse) have no owners or modes: every file shows up as
+# 0755/0777, and dropbear refuses an authorized_keys it can't trust
+is_posix_fs() {
+	case "$(stat -f -c %T "$1" 2>/dev/null)" in
+		msdos|vfat|exfat|fuseblk|fuse|ntfs)
+			return 1
+			;;
+	esac
+	return 0
+}
+
+# Run from a POSIX copy of the keys; new host keys are written back to the share
+setup_run_dir() {
+	rm -rf "${RUN_DIR}"
+	mkdir -p "${RUN_DIR}" "${HOSTKEY_DIR}"
+	chmod 0700 "${RUN_DIR}"
+
+	for KEYTYPE in rsa ecdsa ed25519; do
+		KEYFILE="dropbear_${KEYTYPE}_host_key"
+		if [ -s "${HOSTKEY_DIR}/${KEYFILE}" ]; then
+			cp "${HOSTKEY_DIR}/${KEYFILE}" "${RUN_DIR}/${KEYFILE}"
+		elif dropbearkey -t "${KEYTYPE}" -f "${RUN_DIR}/${KEYFILE}" >/dev/null 2>&1; then
+			cp "${RUN_DIR}/${KEYFILE}" "${HOSTKEY_DIR}/${KEYFILE}"
+		else
+			continue
+		fi
+		chmod 0600 "${RUN_DIR}/${KEYFILE}"
+		DROPBEAR_ARGS="$DROPBEAR_ARGS -r ${RUN_DIR}/${KEYFILE}"
+	done
+
+	# read at start only: restart the service after editing it
+	if [ -f "${AUTHKEY_DIR}/authorized_keys" ]; then
+		cp "${AUTHKEY_DIR}/authorized_keys" "${RUN_DIR}/authorized_keys"
+		chmod 0600 "${RUN_DIR}/authorized_keys"
+	fi
+	DROPBEAR_ARGS="$DROPBEAR_ARGS -D ${RUN_DIR}"
+}
+
 start() {
 
 	# batocera
@@ -15,7 +59,11 @@ start() {
 		exit 0
 	fi
 
-	DROPBEAR_ARGS="$DROPBEAR_ARGS -R"
+	if is_posix_fs /userdata/system; then
+		DROPBEAR_ARGS="$DROPBEAR_ARGS -R"
+	else
+		setup_run_dir
+	fi
 
 	# If /etc/dropbear is a symlink to /var/run/dropbear, and
 	#   - the filesystem is RO (i.e. we can not rm the symlink),

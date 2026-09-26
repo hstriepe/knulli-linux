@@ -33,3 +33,20 @@ If you need to use these commands with their normal names, you can add a "gnubin
 ## First build
   Start docker and do an intial build.
   Debug indendently untili it completes
+
+  The image /Volumes/KnulliBuild/output/h700/images/knulli/images/rg34xx-sp/knulli-h700-rg34xx-sp-scarab-20260926_boot.tar.gz is not booting. Has it been set up with the correct boot sector and file systems?
+
+  It booted.
+  What was the issue with missing keys?
+
+To clarify - I do not yet have a scraper key
+  ## Bug fixes
+  - ssh and samba do not work on anything but ext4 partitions
+  - Screenscarper does not work on ext4
+  - WiFi does not reliably connect or stay connected on WPA2 ssid
+
+  ToDo
+  - Test WPA3, ssh & samna
+  - Implement
+    - Scraper
+    - DS Plus
