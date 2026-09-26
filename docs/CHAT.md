@@ -107,3 +107,11 @@
 - ADR 0003, README "Fixes in this fork".
 - Build: `make h700-pkg PKG=knulli-scripts-reinstall && make h700-build` (log `h700-bugfix-1.log`).
 - Build `h700-bugfix-1`: **exit=0** (Sat 2026-09-26 12:47). All 10 device images rebuilt; the target contains `knulli-diag-net`, the new ssh/samba services, `modprobe.d/8821cs.conf` and `BackgroundScanning=false`. Pending: on-device tests (see TODO).
+
+### 2026-09-26 — Build volume as an ASIF image, startup script
+
+- `KnulliBuild.asif` (repo root, git-ignored via `*.asif`) replaces the `disk11s2` APFS volume on the `Shared` AppleRAID stripe. Single case-sensitive APFS volume, no extra partitions needed; the file sits on the same stripe.
+- `bin/knulli-image.sh` (up/down/status/reformat): repo-relative image path, finds the image's real mount point via `hdiutil info`, and refuses to act on another volume mounted at `/Volumes/KnulliBuild` (`reformat` would otherwise have targeted the RAID disk). Default size 512G.
+- `bin/knulli-startup.sh` (`--check` = report only): Xcode CLT, Homebrew formulae + OrbStack cask, OrbStack running with the docker context, image mounted, build dirs and repo symlinks, `knulli.mk`, submodules, arm64/amd64 build images, case-sensitivity inside the container.
+- Measured space: ~186 GiB steady state for h700 (`output/h700` 92, `emulators-drop` 31, `dl` 24, `cores-cache` 19, armhf 15, ccache 4); another target adds ~100 GiB.
+- Open: finish the copy, `diskutil image resize --size 512G`, eject the old volume, `bin/knulli-startup.sh`; then update ADR 0002 and `docs/macOS_build_prerequisites.md`.

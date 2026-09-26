@@ -41,3 +41,6 @@ batocera-mok.key
 /armhf-cache
 
 # docs/ holds this fork's agent workflow (PROMPT, CHAT, ADRs) and is tracked.
+
+# Case-sensitive build volume image (bin/knulli-image.sh)
+*.asif
